@@ -1,8 +1,5 @@
 #!/bin/sh
 
-SLEEP_DURATION=5
-SLEEP_BEFORE_KILL=2
-
 old_hsh=''
 new_hsh=''
 
@@ -20,6 +17,14 @@ function check_env {
     if [ -z "${VERBOSE}" ]; then
         # Prevent +u from throwing exceptions if not set
         VERBOSE=''
+    fi
+
+    if [ -z "${SLEEP}" ]; then
+        SLEEP=1
+    fi
+
+    if [ -z "${SLEEP_BEFORE_KILL}" ]; then
+        SLEEP_BEFORE_KILL=1
     fi
 
     if [ -z "${TARGET_FILE}" ]; then
@@ -57,8 +62,8 @@ function watch_file {
             reload_application
         fi
 
-        debug "Sleeping for: ${SLEEP_DURATION}s"
-        sleep $SLEEP_DURATION
+        debug "Sleeping for: ${SLEEP}s"
+        sleep $SLEEP
     done
 }
 
