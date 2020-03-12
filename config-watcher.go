@@ -55,7 +55,10 @@ func main() {
 			if oldHash != newHash {
 				logger.Printf("File %v changed. Old hash: %v, new hash: %v",
 					path, oldHash, newHash)
-				reloadProcess(&config)
+				err = reloadProcess(&config)
+				if err != nil {
+					logger.Printf("Unable to reload process: %v", err)
+				}
 				oldFileHashes[path] = newHash
 			}
 		}
@@ -65,43 +68,43 @@ func main() {
 
 }
 
-func reloadProcess(config *Config) {
+func reloadProcess(config *Config) error {
 	// Sleep to ensure change is visible in all containers of the pod.
 	time.Sleep(time.Duration(config.SleepBeforeReloadDuration) * time.Second)
-	pid, success := getPidByName(config.TargetProcess)
-	if success {
-		logger.Printf("Sending signal %v to process %v", config.ReloadSignal, pid)
-		proc, err := os.FindProcess(pid)
-		if err != nil {
-			logger.Println("Unable to send signal to process:", err)
-			return
-		}
-
-		err = proc.Signal(config.ReloadSignal)
-		if err != nil {
-			logger.Println("Unable to send signal to process:", err)
-		}
+	pid, err := getPidByName(config.TargetProcess)
+	if err != nil {
+		return err
 	}
 
+	logger.Printf("Sending signal %v to process %v", config.ReloadSignal, pid)
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("Unable to send signal to process: %v", err)
+	}
+
+	err = proc.Signal(config.ReloadSignal)
+	if err != nil {
+		return fmt.Errorf("Unable to send signal to process: %v", err)
+	}
+
+	return nil
 }
 
-func getPidByName(executable string) (pid int, success bool) {
+func getPidByName(executable string) (int, error) {
 	// Output is ordered by PID, so we can simply pick the first
 	procs, err := ps.Processes()
 	if err != nil {
-		logger.Printf("Unable to retrieve process list: %v", err)
+		return -1, fmt.Errorf("Unable to retrieve process list: %v", err)
 	}
 
 	for _, proc := range procs {
 		if proc.Executable() == executable {
 			pid := proc.Pid()
-			logger.Printf("Found process '%v' with PID %v", executable, pid)
-			return pid, true
+			return pid, nil
 		}
 	}
 
-	logger.Printf("Did not find process '%v'", executable)
-	return 0, false
+	return -1, fmt.Errorf("Did not find process '%v'", executable)
 }
 
 func updateFileHashes(config *Config, hashes map[string]string) {
