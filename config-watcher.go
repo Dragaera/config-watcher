@@ -112,6 +112,7 @@ func updateFileHashes(config *Config, hashes map[string]string) {
 		hash, err := hashFile(path)
 		if err != nil {
 			logger.Printf("Unable to hash file '%s': %s", path, err)
+			hashes[path] = ""
 			continue
 		}
 
