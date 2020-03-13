@@ -1,0 +1,13 @@
+# Vim
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Docker
+.dockerignore
+Dockerfile
+
+# Compiled application
+config-watcher
