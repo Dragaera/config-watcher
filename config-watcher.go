@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,7 +17,7 @@ import (
 )
 
 type Config struct {
-	TargetFiles               []string       // List of files which to watch
+	TargetFiles               []string       // List of files or glob patterns which to watch
 	TargetProcess             string         // Name of process which to reload on changes to files
 	ReloadSignal              syscall.Signal // Signal which to send to process
 	SleepDuration             int            // Duration in seconds which to sleep between checking files for changes
@@ -49,8 +50,8 @@ func main() {
 	for {
 		updateFileHashes(&config, newFileHashes)
 
-		for path, oldHash := range oldFileHashes {
-			newHash := newFileHashes[path]
+		for path, newHash := range newFileHashes {
+			oldHash := oldFileHashes[path]
 
 			if oldHash != newHash {
 				logger.Printf("File %v changed. Old hash: %v, new hash: %v",
@@ -108,16 +109,35 @@ func getPidByName(executable string) (int, error) {
 }
 
 func updateFileHashes(config *Config, hashes map[string]string) {
-	for _, path := range config.TargetFiles {
-		hash, err := hashFile(path)
+	for _, pattern := range config.TargetFiles {
+		paths, err := expandGlob(pattern)
 		if err != nil {
-			logger.Printf("Unable to hash file '%s': %s", path, err)
-			hashes[path] = ""
+			logger.Println(err)
 			continue
 		}
 
-		hashes[path] = hash
+		for _, path := range paths {
+			hash, err := hashFile(path)
+			if err != nil {
+				logger.Printf("Unable to hash file '%s': %s", path, err)
+				hashes[path] = ""
+				continue
+			}
+
+			hashes[path] = hash
+		}
 	}
+}
+
+func expandGlob(pattern string) ([]string, error) {
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		return paths, err
+	}
+	if paths == nil {
+		return paths, fmt.Errorf("No file matching pattern: %v", pattern)
+	}
+	return paths, nil
 }
 
 func hashFile(path string) (string, error) {
